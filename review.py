@@ -29,7 +29,7 @@ def load_data(file_path):
 
     return trainloader, testloader
 
-def train(train_loader):
+def train(train_loader, testloader):
     model = resnet18(num_classes = 10).to(device = device)
     epochs = 40
     max_lr = 0.01
@@ -40,6 +40,28 @@ def train(train_loader):
 
     for epoch in range(epochs):
         model.train()
-        train_losses = []
-        lrs = []
-        for batch in train_loader
+        for i, data in enumerate(train_loader):
+            feature, label = feature.to(device), label.to(device)
+            optimizer.zero_grad()
+            output = model(feature)
+            loss = F.cross_entropy(output, label)
+            loss.backward()
+            optimizer.step()
+            _, predicted = torch.max(output.data, 1)
+            print(f"Train Epoch:[{epoch + 1} | {epochs}] | Loss: {loss.data.item()} | Acc: {(predicted == label).sum() / len(predicted)}")
+        test(testloader, model)
+        torch.save(model.state_dict(), 'ValidateR18.pth')
+
+
+def test(testloader, model):
+    model.eval()
+    with torch.no_grad():
+        total = 0
+        correct = 0
+        for i, (feature, label) in enumerate(testloader):
+            feature, label = feature.to(device), label.to(device)
+            output = model(feature)
+            _, predicted = torch.max(output.data, 1)
+            total += label.size(0)
+            correct += (predicted == label).sum()
+        print(f"Validating ----- Accuracy on the TEST set: {(100 * correct / total)}%")
