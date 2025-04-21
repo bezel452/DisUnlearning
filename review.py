@@ -40,17 +40,22 @@ def train(train_loader, testloader):
 
     for epoch in range(epochs):
         model.train()
-        for i, data in enumerate(train_loader):
+        for i, (feature, label) in enumerate(train_loader):
             feature, label = feature.to(device), label.to(device)
-            optimizer.zero_grad()
+            
             output = model(feature)
             loss = F.cross_entropy(output, label)
             loss.backward()
+            if grad_clip:
+                nn.utils.clip_grad_value_(model.parameters(), grad_clip)
             optimizer.step()
+            optimizer.zero_grad()
+            
             _, predicted = torch.max(output.data, 1)
             print(f"Train Epoch:[{epoch + 1} | {epochs}] | Loss: {loss.data.item()} | Acc: {(predicted == label).sum() / len(predicted)}")
-        test(testloader, model)
-        torch.save(model.state_dict(), 'ValidateR18.pth')
+        losses = test(testloader, model)
+        sched.step(losses)
+    torch.save(model.state_dict(), 'ValidateR18.pth')
 
 
 def test(testloader, model):
@@ -58,10 +63,20 @@ def test(testloader, model):
     with torch.no_grad():
         total = 0
         correct = 0
+        losses = []
         for i, (feature, label) in enumerate(testloader):
             feature, label = feature.to(device), label.to(device)
             output = model(feature)
             _, predicted = torch.max(output.data, 1)
+            loss = F.cross_entropy(output, label)
+            losses.append(loss.detach())
             total += label.size(0)
             correct += (predicted == label).sum()
         print(f"Validating ----- Accuracy on the TEST set: {(100 * correct / total)}%")
+    return torch.stack(losses).mean()
+
+if __name__ == '__main__':
+    file_path = '/home/data/datasets/cifar10'
+    train_loader, test_loader = load_data(file_path)
+    train(train_loader, test_loader)
+
